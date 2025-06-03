@@ -113,18 +113,31 @@ public static class Utilities {
 	[PublicAPI]
 	public static ulong GetUnixTime() => (ulong) DateTimeOffset.UtcNow.ToUnixTimeSeconds();
 
-	[PublicAPI]
-	public static async void InBackground(Action action, bool longRunning = false) {
-		ArgumentNullException.ThrowIfNull(action);
+       [PublicAPI]
+       public static void InBackground(Action action, bool longRunning = false) {
+               ArgumentNullException.ThrowIfNull(action);
 
-		TaskCreationOptions options = TaskCreationOptions.DenyChildAttach;
+               TaskCreationOptions options = TaskCreationOptions.DenyChildAttach;
 
-		if (longRunning) {
-			options |= TaskCreationOptions.LongRunning | TaskCreationOptions.PreferFairness;
-		}
+               if (longRunning) {
+                       options |= TaskCreationOptions.LongRunning | TaskCreationOptions.PreferFairness;
+               }
 
-		await Task.Factory.StartNew(action, CancellationToken.None, options, TaskScheduler.Default).ConfigureAwait(false);
-	}
+               _ = Task.Factory.StartNew(action, CancellationToken.None, options, TaskScheduler.Default).ContinueWith(static t => ASF.ArchiLogger.LogGenericException(t.Exception!), TaskContinuationOptions.OnlyOnFaulted);
+       }
+
+       [PublicAPI]
+       public static void InBackground(Func<Task> function, bool longRunning = false) {
+               ArgumentNullException.ThrowIfNull(function);
+
+               TaskCreationOptions options = TaskCreationOptions.DenyChildAttach;
+
+               if (longRunning) {
+                       options |= TaskCreationOptions.LongRunning | TaskCreationOptions.PreferFairness;
+               }
+
+               _ = Task.Factory.StartNew(function, CancellationToken.None, options, TaskScheduler.Default).Unwrap().ContinueWith(static t => ASF.ArchiLogger.LogGenericException(t.Exception!), TaskContinuationOptions.OnlyOnFaulted);
+       }
 
 	[PublicAPI]
 	public static void InBackground<T>(Func<T> function, bool longRunning = false) {
